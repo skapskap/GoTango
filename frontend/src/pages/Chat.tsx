@@ -25,6 +25,7 @@ export default function Chat() {
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (inputMessage.trim() !== "" && socket) {
+      setMessages((prevMessages) => [...prevMessages, inputMessage]); // Adiciona a mensagem ao estado messages
       socket.send(inputMessage);
       setInputMessage("");
     }
