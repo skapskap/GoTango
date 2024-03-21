@@ -1,47 +1,66 @@
 package main
 
 import (
-	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-func TestUseWS(t *testing.T) {
+func TestWebSocketConnection(t *testing.T) {
 	server := NewUpgrader()
+	go server.listen()
 
-	// Create a test HTTP server
-	testServer := httptest.NewServer(http.HandlerFunc(server.handleWS))
+	testServer := httptest.NewServer(server.router)
 	defer testServer.Close()
 
-	// Convert the test server URL to a WebSocket URL
-	wsURL := "ws" + strings.TrimPrefix(testServer.URL, "http")
+	conn := makeConnection(testServer)
+	defer conn.Close()
 
-	// Create a WebSocket client
-	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	time.Sleep(50 * time.Millisecond)
+
+	if len(server.clients) != 1 {
+		t.Fatalf("expected 1 client, got %d", len(server.clients))
+	}
+}
+
+func TestWebSocketMessaging(t *testing.T) {
+	server := NewUpgrader()
+	go server.listen()
+
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	conn1 := makeConnection(testServer)
+	conn2 := makeConnection(testServer)
+	defer conn1.Close()
+	defer conn2.Close()
+
+	message := []byte("Hello, server!")
+	if err := conn1.WriteMessage(websocket.TextMessage, message); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	_, received, err := conn2.ReadMessage()
 	if err != nil {
-		t.Fatalf("Failed to connect to WebSocket server: %v", err)
+		t.Fatal(err)
 	}
-	defer ws.Close()
 
-	// Send a message to the WebSocket server
-	message := "Hello, server!"
-	err = ws.WriteMessage(websocket.TextMessage, []byte(message))
+	if string(received) != string(message) {
+		t.Fatalf("expected message %s, got %s", message, received)
+	}
+}
+
+func makeConnection(testServer *httptest.Server) *websocket.Conn {
+	dialer := websocket.Dialer{}
+	conn, _, err := dialer.Dial("ws"+testServer.URL[4:]+"/ws", nil)
+
 	if err != nil {
-		t.Fatalf("Failed to send message to WebSocket server: %v", err)
+		panic(err)
 	}
 
-	// Read the response from the WebSocket server
-	_, response, err := ws.ReadMessage()
-	if err != nil {
-		t.Fatalf("Failed to read message from WebSocket server: %v", err)
-	}
-
-	// Assert the response from the server
-	expectedResponse := "Hello, client!"
-	if string(response) != expectedResponse {
-		t.Errorf("Unexpected response from server. Got: %s, Expected: %s", string(response), expectedResponse)
-	}
+	return conn
 }
