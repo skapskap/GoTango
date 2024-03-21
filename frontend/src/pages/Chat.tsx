@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -6,6 +6,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<string[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const newSocket = new WebSocket("ws://localhost:4869/ws");
@@ -39,7 +40,16 @@ export default function Chat() {
       setMessages((prevMessages) => [...prevMessages, inputMessage]);
       socket.send(inputMessage);
       setInputMessage("");
+      scrollToBottom();
     }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -55,7 +65,10 @@ export default function Chat() {
           </div>
         </header>
         <main className="flex-1 flex flex-col p-4">
-          <div className="space-y-4 flex-1">
+          <div
+            className="space-y-4 flex-1"
+            style={{ overflowY: "scroll", maxHeight: "50vh" }}
+          >
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -82,6 +95,7 @@ export default function Chat() {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
           <div className="mt-4">
             <form
