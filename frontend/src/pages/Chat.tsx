@@ -24,8 +24,19 @@ export default function Chat() {
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    sendMessage();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const sendMessage = () => {
     if (inputMessage.trim() !== "" && socket) {
-      setMessages((prevMessages) => [...prevMessages, inputMessage]); // Adiciona a mensagem ao estado messages
+      setMessages((prevMessages) => [...prevMessages, inputMessage]);
       socket.send(inputMessage);
       setInputMessage("");
     }
@@ -82,6 +93,7 @@ export default function Chat() {
                 placeholder="Type a message..."
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
               <Button type="submit">Send</Button>
             </form>
