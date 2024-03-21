@@ -37,19 +37,19 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	
 	defer conn.Close()
 
-	// Read a message from the client
     _, message, err := conn.ReadMessage()
     if err != nil {
         log.Println(err)
         return
     }
+    fmt.Println("Message received:", string(message))
 
-    // Echo the message back to the client
     err = conn.WriteMessage(websocket.TextMessage, message)
     if err != nil {
         log.Println(err)
         return
     }
+    fmt.Println("Message sent:", string(message))
 }
 
 func main() {
