@@ -10,11 +10,12 @@ import (
 )
 
 type Client struct {
-	conn *websocket.Conn
+	username string
+	conn     *websocket.Conn
 }
 
 type Message struct {
-	author  *Client
+	author  string
 	content []byte
 }
 
@@ -40,7 +41,7 @@ func (s *Server) listen() {
 		select {
 		case message := <-s.message:
 			for _, client := range s.clients {
-				if client != message.author {
+				if client.username != message.author {
 					client.write(message.content)
 				}
 			}
@@ -71,21 +72,26 @@ func readMessages(server *Server, client *Client) {
 			continue
 		}
 
-		log.Println("message received: ", string(message))
-		server.message <- Message{author: client, content: message}
+		if client.username == "" {
+			// First message is the username
+			client.username = string(message)
+			log.Printf("Client username set: %s", client.username)
+		} else {
+			log.Printf("Message received from %s: %s", client.username, string(message))
+			server.message <- Message{author: client.username, content: message}
+		}
 	}
 }
-
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("New incoming connection from client!")
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-        log.Println("Failed to upgrade connection")
+		log.Println("Failed to upgrade connection")
 		log.Println(err)
 		return
 	}
-	
+
 	log.Println("client connected")
 
 	client := NewClient(conn)
@@ -95,21 +101,21 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewUpgrader() *Server {
-    s := &Server{}
+	s := &Server{}
 
-    s.router = chi.NewRouter()
-    s.router.Get("/ws", s.handleWS)
+	s.router = chi.NewRouter()
+	s.router.Get("/ws", s.handleWS)
 
-    s.upgrader = websocket.Upgrader{
-        ReadBufferSize:  1024,
-        WriteBufferSize: 1024,
-        CheckOrigin: func(r *http.Request) bool {
-            // Allow all origins for the time being
-            return true
-        },
-    }
+	s.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			// Allow all origins for the time being
+			return true
+		},
+	}
 
-    s.message = make(chan Message)
+	s.message = make(chan Message)
 	s.register = make(chan *Client)
 	s.unregister = make(chan *Client)
 
@@ -118,8 +124,8 @@ func NewUpgrader() *Server {
 
 func main() {
 	server := NewUpgrader()
-    go server.listen()
+	go server.listen()
 
 	fmt.Println("Server is running on port 4869")
-	log.Fatal(http.ListenAndServe(":4869", server.router))
+	log.Fatal(http.ListenAndServe("localhost:4869", server.router))
 }
